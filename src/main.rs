@@ -12,14 +12,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let semaphore = Arc::new(Semaphore::new(20));
     let args: Vec<String> = env::args().collect();
     let mut d = Doujin::new(&args[1]);
+    let client = reqwest::Client::builder().build()?;
 
-    d.initialize().await?;
+    d.initialize(client.clone()).await?;
 
     let handles = d
         .pages
         .into_iter()
-        .map(|page| tokio::spawn(page.download(semaphore.clone())));
-    // tokio::join!(..handles).await;
+        .map(|page| page.download(client.clone(), semaphore.clone()));
     futures::future::join_all(handles).await;
     Ok(())
 }

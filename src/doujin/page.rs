@@ -18,10 +18,10 @@ impl Page {
             &_ => ".jpg",
         };
         let page = format!(
-            "https://i.nhentai.net/galleries/{}/{}.{}",
+            "https://i.nhentai.net/galleries/{}/{}{}",
             media_id, number, ext
         );
-        let filename = format!("{}/{:0>3}.{}", dir, number, ext);
+        let filename = format!("{}/{:0>3}{}", dir, number, ext);
         Page {
             url: page,
             filename: filename,
@@ -30,9 +30,10 @@ impl Page {
 
     pub async fn download(
         self: Self,
+        client: reqwest::Client,
         semaphore: Arc<Semaphore>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let client = reqwest::Client::builder().build()?;
+        // let client = reqwest::Client::builder().build()?;
         let permit = semaphore.acquire_owned().await?;
         let mut res = client.get(self.url.as_str()).send().await?.bytes_stream();
         let mut file = tokio::fs::File::create(self.filename.as_str()).await?;

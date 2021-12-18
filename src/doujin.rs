@@ -39,8 +39,8 @@ impl Doujin {
             pages: Vec::new(),
         }
     }
-    pub async fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let client = reqwest::Client::builder().build()?;
+    pub async fn initialize(&mut self, client: reqwest::Client) -> Result<(), Box<dyn std::error::Error>> {
+        // let client = reqwest::Client::builder().build()?;
 
         // Perform the actual execution of the network request
         let body = client
