@@ -33,7 +33,6 @@ impl Page {
         client: reqwest::Client,
         semaphore: Arc<Semaphore>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // let client = reqwest::Client::builder().build()?;
         let permit = semaphore.acquire_owned().await?;
         let mut res = client.get(self.url.as_str()).send().await?.bytes_stream();
         let mut file = tokio::fs::File::create(self.filename.as_str()).await?;
