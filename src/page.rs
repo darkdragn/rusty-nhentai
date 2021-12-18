@@ -13,10 +13,16 @@ pub struct Page {
 impl Page {
 
     pub fn new(media_id: &str, dir: &str, number: usize, type_: &str) -> Page{
-        let page = format!("https://i.nhentai.net/galleries/{}/{}.jpg", media_id, number);
-        let filename = format!("{}/{:0>3}.jpg", dir, number);
+        let ext = match type_ {
+            "j" => ".jpg",
+            "p" => ".png",
+            &_ => ".jpg"
+        };
+        let page = format!("https://i.nhentai.net/galleries/{}/{}.{}", media_id, number, ext);
+        let filename = format!("{}/{:0>3}.{}", dir, number, ext);
         Page { url: page, filename: filename}
     }
+    
     pub async fn download(self: Self, semaphore: Arc<Semaphore>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let client = reqwest::Client::builder()
             .build()?;
