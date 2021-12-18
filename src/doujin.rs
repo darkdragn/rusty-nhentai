@@ -31,6 +31,7 @@ pub struct DoujinInternal {
 #[derive(Debug)]
 pub struct Doujin {
     id: String,
+    pub dir: String,
     pub pages: Vec<Page>,
 }
 
@@ -38,6 +39,7 @@ impl Doujin {
     pub fn new(id: &String) -> Doujin {
         Doujin {
             id: id.to_string(),
+            dir: Default::default(),
             pages: Vec::new(),
         }
     }
@@ -65,9 +67,20 @@ impl Doujin {
             .map(|(i, e)| Page::new(&media_id, &dir, i + 1, &e.t))
             .collect();
         create_dir_all(dir)?;
-        let mut f = File::create(format!("{}/.id", dir))?;
-        f.write_all(self.id.as_bytes())?;
+        // let mut f = File::create(format!("{}/.id", dir))?;
+        // f.write_all(self.id.as_bytes())?;
+        self.dir = dir.to_string();
         self.pages = out_pages;
         Ok(())
+    }
+    pub fn start_zip(
+        &self,
+        mut zip: zip::ZipWriter<File>,
+    ) -> Result<zip::ZipWriter<File>, Box<dyn std::error::Error>> {
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        zip.start_file(".id", options)?;
+        zip.write_all(self.id.as_bytes())?;
+        Ok(zip)
     }
 }
