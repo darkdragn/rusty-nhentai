@@ -42,15 +42,13 @@ async fn parse_doujin(id: &String) -> Result<Vec<page::Page>, Box<dyn std::error
     let dir = body["title"]["pretty"].as_str().unwrap();
     let media_id = body["media_id"].as_str().unwrap();
     let pages = body["images"]["pages"].as_array().unwrap();
-    let mut out_pages: Vec<page::Page> = Vec::new();
 
     println!("Downloading: {}...", dir);
-    for (i, _e) in pages.iter().enumerate() {
-        let page = format!("https://i.nhentai.net/galleries/{}/{}.jpg", media_id, i+1);
-        // out_pages.push(page::Page::new(media_id, dir, number, type_))
-        out_pages.push(page::Page::new(page, format!("{}/{:0>3}.jpg", dir, i+1)))
-        // out_pages.push(page::Page {url: page, filename: format!("{}/{:0>3}.jpg", dir, i+1)})
-    }
+    let out_pages = pages
+        .iter()
+        .enumerate()
+        .map(|(i, e)| page::Page::new(media_id, dir, i+1, e["t"].as_str().unwrap()))
+        .collect();
     create_dir_all(dir)?;
     Ok(out_pages)
 }

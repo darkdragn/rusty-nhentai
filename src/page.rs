@@ -11,10 +11,12 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn new(url: String, filename: String) -> Page{
-        Page { url: url, filename: filename}
-    }
 
+    pub fn new(media_id: &str, dir: &str, number: usize, type_: &str) -> Page{
+        let page = format!("https://i.nhentai.net/galleries/{}/{}.jpg", media_id, number);
+        let filename = format!("{}/{:0>3}.jpg", dir, number);
+        Page { url: page, filename: filename}
+    }
     pub async fn download(self: Self, semaphore: Arc<Semaphore>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let client = reqwest::Client::builder()
             .build()?;
