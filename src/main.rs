@@ -1,11 +1,8 @@
 mod doujin;
 
 use std::env;
-use std::sync::Arc;
-
 use std::fs::File;
-// use std::io::Write;
-// use zip::write::FileOptions;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;

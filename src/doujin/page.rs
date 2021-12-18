@@ -5,7 +5,6 @@ use futures_util::StreamExt;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
-// use zip::write::FileOptions;
 
 #[derive(Debug)]
 pub struct Page {
@@ -45,6 +44,7 @@ impl Page {
         drop(permit);
         Ok(())
     }
+
     pub async fn download_to_zip(
         self: Self,
         client: reqwest::Client,
@@ -58,6 +58,7 @@ impl Page {
         let mut zip = lock.write().await;
         let options =
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
         zip.start_file(self.filename.as_str(), options)?;
         while let Some(item) = res.next().await {
             (*zip).write_all(&mut item?)?;

@@ -66,7 +66,7 @@ impl Doujin {
             .enumerate()
             .map(|(i, e)| Page::new(&media_id, &dir, i + 1, &e.t))
             .collect();
-        create_dir_all(dir)?;
+        // create_dir_all(dir)?;
         // let mut f = File::create(format!("{}/.id", dir))?;
         // f.write_all(self.id.as_bytes())?;
         self.dir = dir.to_string();
