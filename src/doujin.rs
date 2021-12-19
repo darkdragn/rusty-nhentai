@@ -5,9 +5,11 @@ use serde::Deserialize;
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
 use std::sync::Arc;
 use url::Url;
 
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
@@ -89,9 +91,23 @@ impl Doujin {
     }
 
     pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let filename = format!("{}.cbz", self.dir);
         println!("Downloading {}...", self.dir);
-        let f = File::create(format!("{}.zip", self.dir))?;
-        let mut zip = zip::ZipWriter::new(f);
+        if Path::new(&filename).exists() {
+            println!("File already exists: {}", filename);
+            return Ok(());
+        }
+
+        let f = File::create(filename)?;
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} {msg} [{elapsed_precise}] {bytes} ({bytes_per_sec})"),
+        );
+        pb.enable_steady_tick(200);
+        pb.set_message(self.dir.clone());
+
+        let mut zip = zip::ZipWriter::new(pb.wrap_write(f));
         let options =
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
         zip.start_file(".id", options)?;
@@ -108,6 +124,7 @@ impl Doujin {
             )
         });
         futures::future::join_all(handles).await;
+        pb.finish();
         Ok(())
     }
 }

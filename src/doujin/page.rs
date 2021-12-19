@@ -47,7 +47,7 @@ impl Page {
     pub async fn download_to_zip(
         self: Self,
         client: reqwest::Client,
-        lock: Arc<RwLock<zip::ZipWriter<File>>>,
+        lock: Arc<RwLock<zip::ZipWriter<indicatif::ProgressBarIter<File>>>>,
         semaphore: Arc<Semaphore>,
         options: &zip::write::FileOptions,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
