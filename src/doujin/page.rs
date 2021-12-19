@@ -6,7 +6,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Page {
     url: String,
     filename: String,
@@ -30,7 +30,7 @@ impl Page {
         }
     }
 
-    pub async fn download(
+    pub async fn download_to_folder(
         self: Self,
         client: reqwest::Client,
         semaphore: Arc<Semaphore>,
@@ -48,7 +48,6 @@ impl Page {
     pub async fn download_to_zip(
         self: Self,
         client: reqwest::Client,
-        // zip: &zip::ZipWriter<&mut File>,
         lock: Arc<RwLock<zip::ZipWriter<File>>>,
         semaphore: Arc<Semaphore>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -61,7 +60,7 @@ impl Page {
 
         zip.start_file(self.filename.as_str(), options)?;
         while let Some(item) = res.next().await {
-            (*zip).write_all(&mut item?)?;
+            zip.write_all(&mut item?)?;
         }
         Ok(())
     }

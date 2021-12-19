@@ -5,6 +5,10 @@ use serde::Deserialize;
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::prelude::*;
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
+use tokio::sync::Semaphore;
 
 #[derive(Deserialize)]
 pub struct Titles {
@@ -82,5 +86,23 @@ impl Doujin {
         zip.start_file(".id", options)?;
         zip.write_all(self.id.as_bytes())?;
         Ok(zip)
+    }
+    pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let semaphore = Arc::new(Semaphore::new(20));
+        let client = reqwest::Client::builder().build()?;
+
+        self.initialize(client.clone()).await?;
+
+        let f = File::create(format!("{}.zip", self.dir))?;
+        let mut zip = zip::ZipWriter::new(f);
+        zip = self.start_zip(zip)?;
+        let lock = Arc::new(RwLock::new(zip));
+        let handles = self
+            .pages
+            .clone()
+            .into_iter()
+            .map(|page| page.download_to_zip(client.clone(), lock.clone(), semaphore.clone()));
+        futures::future::join_all(handles).await;
+        Ok(())
     }
 }
