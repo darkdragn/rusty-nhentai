@@ -45,15 +45,14 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
             .enumerate()
             .map(|(i, e)| Page::new(&media_id, title, i + 1, &e.t))
             .collect();
-        output.push(
-            Doujin {
-                id: d.id.to_string(),
-                client: client.clone(),
-                dir: title.clone(),
-                pages: pages,
-                semaphore: semaphore.clone(),
-            }
-        )
+        output.push(Doujin {
+            id: d.id.to_string(),
+            client: client.clone(),
+            dir: title.clone(),
+            pages: pages,
+            semaphore: semaphore.clone(),
+            author: None,
+        })
     }
     Ok(output)
 }

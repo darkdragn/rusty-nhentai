@@ -42,13 +42,14 @@ struct DoujinInternal {
     images: Images,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Doujin {
     pub id: String,
     client: Client,
     pub dir: String,
     pages: Vec<Page>,
     semaphore: Arc<Semaphore>,
+    pub author: Option<String>,
 }
 
 impl Doujin {
@@ -78,6 +79,7 @@ impl Doujin {
             dir: title,
             pages: pages,
             semaphore: semaphore,
+            author: None,
         })
     }
 
@@ -97,7 +99,13 @@ impl Doujin {
     }
 
     pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let filename = format!("{}.zip", self.dir);
+        let mut filename = format!("{}.zip", self.dir);
+        match &self.author {
+            Some(author) => {
+                filename = format!("{}/{}", author, filename);
+            }
+            None => {}
+        }
         if Path::new(&filename).exists() {
             println!("File already exists: {}", filename);
             return Ok(());
