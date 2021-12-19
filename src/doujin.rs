@@ -1,7 +1,10 @@
 mod page;
+pub mod search;
 use page::Page;
 
 use serde::Deserialize;
+// use serde_json::value::Value;
+use serde_with::serde_as;
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::prelude::*;
@@ -14,23 +17,26 @@ use reqwest::Client;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Titles {
     pretty: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Image {
     pub t: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Images {
     pub pages: Vec<Image>,
 }
 
-#[derive(Deserialize)]
+#[serde_as]
+#[derive(Clone, Debug, Deserialize)]
 struct DoujinInternal {
+    #[serde_as(as = "serde_with::PickFirst<(_, serde_with::DisplayFromStr)>")]
+    id: u32,
     media_id: String,
     title: Titles,
     images: Images,
@@ -38,9 +44,9 @@ struct DoujinInternal {
 
 #[derive(Debug)]
 pub struct Doujin {
-    id: String,
+    pub id: String,
     client: Client,
-    dir: String,
+    pub dir: String,
     pages: Vec<Page>,
     semaphore: Arc<Semaphore>,
 }
@@ -67,7 +73,7 @@ impl Doujin {
             .collect();
 
         Ok(Doujin {
-            id: id.to_string(),
+            id: id.clone(),
             client: client,
             dir: title,
             pages: pages,
@@ -91,8 +97,7 @@ impl Doujin {
     }
 
     pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let filename = format!("{}.cbz", self.dir);
-        println!("Downloading {}...", self.dir);
+        let filename = format!("{}.zip", self.dir);
         if Path::new(&filename).exists() {
             println!("File already exists: {}", filename);
             return Ok(());
