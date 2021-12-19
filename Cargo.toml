@@ -12,3 +12,4 @@ serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 futures-util = "0.3.17"
 zip = "0.5.13"
+clap = "2"

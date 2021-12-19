@@ -70,9 +70,6 @@ impl Doujin {
             .enumerate()
             .map(|(i, e)| Page::new(&media_id, &dir, i + 1, &e.t))
             .collect();
-        // create_dir_all(dir)?;
-        // let mut f = File::create(format!("{}/.id", dir))?;
-        // f.write_all(self.id.as_bytes())?;
         self.dir = dir.to_string();
         self.pages = out_pages;
         Ok(())
@@ -86,6 +83,23 @@ impl Doujin {
         zip.start_file(".id", options)?;
         zip.write_all(self.id.as_bytes())?;
         Ok(zip)
+    }
+    pub async fn download_to_folder(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let semaphore = Arc::new(Semaphore::new(20));
+        let client = reqwest::Client::builder().build()?;
+
+        self.initialize(client.clone()).await?;
+        create_dir_all(self.dir.as_str())?;
+        let mut f = File::create(format!("{}/.id", self.dir))?;
+        f.write_all(self.id.as_bytes())?;
+
+        let handles = self
+            .pages
+            .clone()
+            .into_iter()
+            .map(|page| page.download_to_folder(client.clone(), semaphore.clone()));
+        futures::future::join_all(handles).await;
+        Ok(())
     }
     pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let semaphore = Arc::new(Semaphore::new(20));
