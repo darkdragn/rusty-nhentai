@@ -6,13 +6,15 @@ use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
+use url::Url;
 
+use reqwest::Client;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
 #[derive(Deserialize)]
 pub struct Titles {
-    pub pretty: String,
+    pretty: String,
 }
 
 #[derive(Deserialize)]
@@ -26,69 +28,53 @@ pub struct Images {
 }
 
 #[derive(Deserialize)]
-pub struct DoujinInternal {
-    pub media_id: String,
-    pub title: Titles,
-    pub images: Images,
+struct DoujinInternal {
+    media_id: String,
+    title: Titles,
+    images: Images,
 }
 
 #[derive(Debug)]
 pub struct Doujin {
     id: String,
-    pub dir: String,
-    pub pages: Vec<Page>,
+    client: Client,
+    dir: String,
+    pages: Vec<Page>,
+    semaphore: Arc<Semaphore>,
 }
 
 impl Doujin {
-    pub fn new(id: &String) -> Doujin {
-        Doujin {
-            id: id.to_string(),
-            dir: Default::default(),
-            pages: Vec::new(),
-        }
-    }
-    pub async fn initialize(
-        &mut self,
-        client: reqwest::Client,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
+        let semaphore = Arc::new(Semaphore::new(25));
+        let client = reqwest::Client::builder().build()?;
+        let base = Url::parse("https://nhentai.net/api/gallery/")?;
+
         // Perform the actual execution of the network request
-        let body = client
-            .get(format!("https://nhentai.net/api/gallery/{}", self.id))
-            .send()
-            .await?
-            .json::<DoujinInternal>()
-            .await?;
+        let resp = client.get(base.join(id)?).send().await?;
+        let body = resp.json::<DoujinInternal>().await?;
 
         // Grab what we need
-        let dir = body.title.pretty.as_str();
         let media_id = body.media_id;
-        let pages = body.images.pages;
-
-        println!("Downloading: {}...", dir);
-        let out_pages = pages
+        let title = body.title.pretty;
+        let pages = body
+            .images
+            .pages
             .iter()
             .enumerate()
-            .map(|(i, e)| Page::new(&media_id, &dir, i + 1, &e.t))
+            .map(|(i, e)| Page::new(&media_id, &title, i + 1, &e.t))
             .collect();
-        self.dir = dir.to_string();
-        self.pages = out_pages;
-        Ok(())
-    }
-    pub fn start_zip(
-        &self,
-        mut zip: zip::ZipWriter<File>,
-    ) -> Result<zip::ZipWriter<File>, Box<dyn std::error::Error>> {
-        let options =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
-        zip.start_file(".id", options)?;
-        zip.write_all(self.id.as_bytes())?;
-        Ok(zip)
-    }
-    pub async fn download_to_folder(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let semaphore = Arc::new(Semaphore::new(20));
-        let client = reqwest::Client::builder().build()?;
 
-        self.initialize(client.clone()).await?;
+        Ok(Doujin {
+            id: id.to_string(),
+            client: client,
+            dir: title,
+            pages: pages,
+            semaphore: semaphore,
+        })
+    }
+
+    pub async fn download_to_folder(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("Downloading {}...", self.dir);
         create_dir_all(self.dir.as_str())?;
         let mut f = File::create(format!("{}/.id", self.dir))?;
         f.write_all(self.id.as_bytes())?;
@@ -97,25 +83,30 @@ impl Doujin {
             .pages
             .clone()
             .into_iter()
-            .map(|page| page.download_to_folder(client.clone(), semaphore.clone()));
+            .map(|page| page.download_to_folder(self.client.clone(), self.semaphore.clone()));
         futures::future::join_all(handles).await;
         Ok(())
     }
+
     pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let semaphore = Arc::new(Semaphore::new(20));
-        let client = reqwest::Client::builder().build()?;
-
-        self.initialize(client.clone()).await?;
-
+        println!("Downloading {}...", self.dir);
         let f = File::create(format!("{}.zip", self.dir))?;
         let mut zip = zip::ZipWriter::new(f);
-        zip = self.start_zip(zip)?;
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        zip.start_file(".id", options)?;
+        zip.write_all(self.id.as_bytes())?;
+
         let lock = Arc::new(RwLock::new(zip));
-        let handles = self
-            .pages
-            .clone()
-            .into_iter()
-            .map(|page| page.download_to_zip(client.clone(), lock.clone(), semaphore.clone()));
+
+        let handles = self.pages.clone().into_iter().map(|page| {
+            page.download_to_zip(
+                self.client.clone(),
+                lock.clone(),
+                self.semaphore.clone(),
+                &options,
+            )
+        });
         futures::future::join_all(handles).await;
         Ok(())
     }

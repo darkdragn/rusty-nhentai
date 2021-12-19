@@ -35,13 +35,12 @@ impl Page {
         client: reqwest::Client,
         semaphore: Arc<Semaphore>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let permit = semaphore.acquire_owned().await?;
+        let _permit = semaphore.acquire_owned().await?;
         let mut res = client.get(self.url.as_str()).send().await?.bytes_stream();
         let mut file = tokio::fs::File::create(self.filename.as_str()).await?;
         while let Some(item) = res.next().await {
             file.write_all_buf(&mut item?).await?;
         }
-        drop(permit);
         Ok(())
     }
 
@@ -50,18 +49,18 @@ impl Page {
         client: reqwest::Client,
         lock: Arc<RwLock<zip::ZipWriter<File>>>,
         semaphore: Arc<Semaphore>,
+        options: &zip::write::FileOptions,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         use std::io::Write;
         let _permit = semaphore.acquire_owned().await?;
         let mut res = client.get(self.url.as_str()).send().await?.bytes_stream(); //.bytes().await?;
         let mut zip = lock.write().await;
-        let options =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-        zip.start_file(self.filename.as_str(), options)?;
+        zip.start_file(self.filename.as_str(), *options)?;
         while let Some(item) = res.next().await {
             zip.write_all(&mut item?)?;
         }
+
         Ok(())
     }
 }

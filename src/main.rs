@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(matches) = matches.subcommand_matches("pull"){
         let magic = matches.value_of("MAGIC").unwrap().to_string();
-        let mut d = Doujin::new(&magic);
+        let mut d = Doujin::new(&magic).await?;
         if matches.is_present("folder") {
             print!("Outputting to folder; ");
             d.download_to_folder().await?;
