@@ -19,18 +19,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             (@arg MAGIC: +required "Magic number for Doujin to download")
             (@arg folder: -f "Download to folder instead of zip (Zip is the default")
         )
-    ).get_matches();
+        (@subcommand search =>
+            (@setting ArgRequiredElseHelp)
+            (about: "Search for doujin")
+            (@arg numbers: -n +takes_value "Index within the search to download")
+            (@arg QUERY: +required ... "Query string")
+        )
+    )
+    .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("pull"){
-        let magic = matches.value_of("MAGIC").unwrap().to_string();
-        let mut d = Doujin::new(&magic).await?;
-        if matches.is_present("folder") {
-            print!("Outputting to folder; ");
-            d.download_to_folder().await?;
-        } else {
-            print!("Outputting to zipfile; ");
-            d.download_to_zip().await?;
+    match matches.subcommand() {
+        ("pull", Some(sub_m)) => {
+            let magic = sub_m.value_of("MAGIC").unwrap().to_string();
+            let mut d = Doujin::new(&magic).await?;
+            if sub_m.is_present("folder") {
+                print!("Outputting to folder; ");
+                d.download_to_folder().await?;
+            } else {
+                print!("Outputting to zipfile; ");
+                d.download_to_zip().await?;
+            }
         }
+        ("search", Some(sub_m)) => {
+            let query: Vec<&str> = sub_m.values_of("QUERY").unwrap().collect();
+            let mut results = doujin::search::run_search(query.join(" ")).await?;
+            if sub_m.is_present("numbers") {
+                let numbers = sub_m.value_of("numbers").unwrap();
+                for n in numbers.split(",") {
+                    let index = n.parse::<usize>()?;
+                    results[index].download_to_zip().await?;
+                }
+            } else {
+                for (i, d) in results.iter().enumerate() {
+                    println!("{}: {:0>6} {}", i, d.id, d.dir);
+                }
+                println!("Number of Doujin: {}", results.len());
+            }
+        }
+        _ => {}
     }
     Ok(())
 }
