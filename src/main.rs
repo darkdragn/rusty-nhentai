@@ -1,14 +1,10 @@
 mod doujin;
 
-// use std::fs::create_dir_all;
-
 use clap::clap_app;
 use doujin::Doujin;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let args: Vec<String> = env::args().collect();
-
     let matches = clap_app!(RustyNHentai =>
         (@setting SubcommandRequiredElseHelp)
         (version: "1.0")
@@ -26,6 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             (about: "Search for doujin")
             (@arg all: --all "Download all search results")
             (@arg author: -a "Write output to an author folder")
+            (@arg cbz: -c "Write output to .cbz instead of .zip")
             (@arg english: -e "Appends langauge:english to the query string")
             (@arg long: -l "Appends pages:>100 to the query string")
             (@arg numbers: -n +takes_value "Index within the search to download")
@@ -44,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 d.download_to_folder().await?;
             } else {
                 print!("Outputting to zipfile; ");
-                d.download_to_zip(false).await?;
+                d.download_to_zip(false, false).await?;
             }
         }
         ("search", Some(sub_m)) => {
@@ -61,20 +58,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let results = doujin::search::run_search(query.join(" ")).await?;
             let mut author = false;
+            let mut use_cbz = false;
             if sub_m.is_present("author") {
                 author = true;
+            }
+            if sub_m.is_present("cbz"){
+                use_cbz = true;
             }
             if sub_m.is_present("numbers") {
                 let numbers = sub_m.value_of("numbers").unwrap();
                 for n in numbers.split(",") {
                     let index = n.parse::<usize>()?;
                     let mut target = results[index].clone();
-                    // target.author = author.clone();
-                    target.download_to_zip(author).await?;
+                    target.download_to_zip(author, use_cbz).await?;
                 }
             } else if sub_m.is_present("all") {
                 for mut d in results {
-                    d.download_to_zip(author).await?;
+                    d.download_to_zip(author, use_cbz).await?;
                 }
             }
             else {

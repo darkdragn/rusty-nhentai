@@ -78,7 +78,7 @@ impl DoujinInternal {
                 return Some(tag.name.clone());
             }
         }
-        Some("Unknown".to_string())
+        None
     }
     pub fn gen_image_detail(&self, id: usize) -> (String, String) {
         let page = &self.images.pages[id];
@@ -94,25 +94,35 @@ impl DoujinInternal {
 }
 
 impl Doujin {
-    pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
-        let semaphore = Arc::new(Semaphore::new(25));
-        let client = reqwest::Client::builder().build()?;
-        let base = Url::parse("https://nhentai.net/api/gallery/")?;
-
-        // Perform the actual execution of the network request
-        let resp = client.get(base.join(id)?).send().await?;
-        let body = resp.json::<DoujinInternal>().await?;
-
-        Ok(Doujin {
-            id: id.clone(),
-            client,
-            dir: body.title.pretty.clone(),
-            semaphore,
-            author: body.find_artist(),
-            internal: body,
-        })
+    async fn download_image_to_file(&self, i: usize) -> Result<(), Box<dyn std::error::Error>> {
+        let _permit = self.semaphore.clone().acquire_owned().await?;
+        let (url, filename) = self.internal.gen_image_detail(i);
+        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
+        let mut file = tokio::fs::File::create(filename.as_str()).await?;
+        while let Some(item) = res.next().await {
+            file.write_all_buf(&mut item?).await?;
+        }
+        Ok(())
     }
 
+    async fn download_image_to_zip(
+        &self,
+        i: usize,
+        lock: Arc<RwLock<zip::ZipWriter<indicatif::ProgressBarIter<File>>>>,
+        options: &zip::write::FileOptions,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _permit = self.semaphore.clone().acquire_owned().await?;
+        let (url, filename) = self.internal.gen_image_detail(i);
+        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
+        let mut zip = lock.write().await;
+
+        zip.start_file(filename.as_str(), *options)?;
+        while let Some(item) = res.next().await {
+            zip.write_all(&mut item?)?;
+        }
+
+        Ok(())
+    }
     pub async fn download_to_folder(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Downloading {}...", self.dir);
         create_dir_all(self.dir.as_str())?;
@@ -126,22 +136,17 @@ impl Doujin {
         futures::future::join_all(handles).await;
         Ok(())
     }
-    async fn download_image_to_file(&self, i: usize) -> Result<(), Box<dyn std::error::Error>> {
-        let _permit = self.semaphore.clone().acquire_owned().await?;
-        let (url, filename) = self.internal.gen_image_detail(i);
-        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
-        let mut file = tokio::fs::File::create(filename.as_str()).await?;
-        while let Some(item) = res.next().await {
-            file.write_all_buf(&mut item?).await?;
-        }
-        Ok(())
-    }
 
     pub async fn download_to_zip(
         &mut self,
         use_author: bool,
+        use_cbz: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut filename = format!("{}.zip", self.dir);
+        let mut ext = ".zip";
+        if use_cbz {
+            ext = ".cbz"
+        }
+        let mut filename = format!("{}{}", self.dir, ext);
         if use_author {
             let author = self.author.as_ref().unwrap();
             create_dir_all(author)?;
@@ -178,23 +183,22 @@ impl Doujin {
         Ok(())
     }
 
-    async fn download_image_to_zip(
-        &self,
-        i: usize,
-        lock: Arc<RwLock<zip::ZipWriter<indicatif::ProgressBarIter<File>>>>,
-        options: &zip::write::FileOptions,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // use std::io::Write;
-        let _permit = self.semaphore.clone().acquire_owned().await?;
-        let (url, filename) = self.internal.gen_image_detail(i);
-        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
-        let mut zip = lock.write().await;
+    pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
+        let semaphore = Arc::new(Semaphore::new(25));
+        let client = reqwest::Client::builder().build()?;
+        let base = Url::parse("https://nhentai.net/api/gallery/")?;
 
-        zip.start_file(filename.as_str(), *options)?;
-        while let Some(item) = res.next().await {
-            zip.write_all(&mut item?)?;
-        }
+        // Perform the actual execution of the network request
+        let resp = client.get(base.join(id)?).send().await?;
+        let body = resp.json::<DoujinInternal>().await?;
 
-        Ok(())
+        Ok(Doujin {
+            id: id.clone(),
+            client,
+            dir: body.title.pretty.clone(),
+            semaphore,
+            author: body.find_artist(),
+            internal: body,
+        })
     }
 }

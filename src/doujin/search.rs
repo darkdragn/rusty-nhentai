@@ -19,7 +19,7 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
     let mut url = url::Url::parse("https://nhentai.net/api/galleries/search")?;
 
     let mut page = 1u8;
-    let mut results: Vec<DoujinInternal> = Vec::new();
+    let mut results: Vec<Doujin> = Vec::new();
     loop {
         url.query_pairs_mut()
             .clear()
@@ -27,23 +27,20 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
 
         let resp = client.get(url.as_str()).send().await?;
         let body = resp.json::<Search>().await?;
-        results.extend(body.result);
+        results.extend(body.result.iter().map(|d| -> Doujin {
+            Doujin {
+                id: d.id.to_string(),
+                client: client.clone(),
+                dir: d.title.pretty.clone(),
+                semaphore: semaphore.clone(),
+                author: d.find_artist(),
+                internal: d.clone(),
+            }
+        }));
         page += 1;
         if page > body.num_pages {
             break;
         }
     }
-    let mut output: Vec<Doujin> = Vec::new();
-    for d in results.iter() {
-        let title = &d.title.pretty;
-        output.push(Doujin {
-            id: d.id.to_string(),
-            client: client.clone(),
-            dir: title.clone(),
-            semaphore: semaphore.clone(),
-            author: d.find_artist(),
-            internal: d.clone()
-        })
-    }
-    Ok(output)
+    Ok(results)
 }
