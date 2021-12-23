@@ -1,6 +1,5 @@
 use super::Doujin;
 use super::DoujinInternal;
-use super::Page;
 
 use std::sync::Arc;
 
@@ -36,22 +35,14 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
     }
     let mut output: Vec<Doujin> = Vec::new();
     for d in results.iter() {
-        let media_id = &d.media_id;
         let title = &d.title.pretty;
-        let pages: Vec<Page> = d
-            .images
-            .pages
-            .iter()
-            .enumerate()
-            .map(|(i, e)| Page::new(&media_id, title, i + 1, &e.t))
-            .collect();
         output.push(Doujin {
             id: d.id.to_string(),
             client: client.clone(),
             dir: title.clone(),
-            pages: pages,
             semaphore: semaphore.clone(),
             author: d.find_artist(),
+            internal: d.clone()
         })
     }
     Ok(output)

@@ -1,6 +1,6 @@
-mod page;
+// mod page;
 pub mod search;
-use page::Page;
+// use page::Page;
 
 use serde::Deserialize;
 // use serde_json::value::Value;
@@ -12,8 +12,10 @@ use std::path::Path;
 use std::sync::Arc;
 use url::Url;
 
+use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
+use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
@@ -54,9 +56,19 @@ pub struct Doujin {
     pub id: String,
     client: Client,
     pub dir: String,
-    pages: Vec<Page>,
     semaphore: Arc<Semaphore>,
     pub author: Option<String>,
+    internal: DoujinInternal,
+}
+
+impl Image {
+    fn ext(&self) -> &str {
+        match self.t.as_str() {
+            "j" => ".jpg",
+            "p" => ".png",
+            &_ => ".jpg",
+        }
+    }
 }
 
 impl DoujinInternal {
@@ -67,6 +79,17 @@ impl DoujinInternal {
             }
         }
         Some("Unknown".to_string())
+    }
+    pub fn gen_image_detail(&self, id: usize) -> (String, String) {
+        let page = &self.images.pages[id];
+        let url = format!(
+            "https://i.nhentai.net/galleries/{}/{}{}",
+            self.media_id,
+            id + 1,
+            page.ext()
+        );
+        let filename = format!("{}/{:0>3}{}", self.title.pretty, id + 1, page.ext());
+        return (url, filename);
     }
 }
 
@@ -80,24 +103,13 @@ impl Doujin {
         let resp = client.get(base.join(id)?).send().await?;
         let body = resp.json::<DoujinInternal>().await?;
 
-        // Grab what we need
-        let media_id = body.media_id;
-        let title = body.title.pretty;
-        let pages = body
-            .images
-            .pages
-            .iter()
-            .enumerate()
-            .map(|(i, e)| Page::new(&media_id, &title, i + 1, &e.t))
-            .collect();
-
         Ok(Doujin {
             id: id.clone(),
-            client: client,
-            dir: title,
-            pages: pages,
-            semaphore: semaphore,
-            author: None,
+            client,
+            dir: body.title.pretty.clone(),
+            semaphore,
+            author: body.find_artist(),
+            internal: body,
         })
     }
 
@@ -107,12 +119,21 @@ impl Doujin {
         let mut f = File::create(format!("{}/.id", self.dir))?;
         f.write_all(self.id.as_bytes())?;
 
-        let handles = self
-            .pages
-            .clone()
-            .into_iter()
-            .map(|page| page.download_to_folder(self.client.clone(), self.semaphore.clone()));
+        let mut handles = Vec::new();
+        for i in 0..self.internal.images.pages.len() {
+            handles.push(self.download_image_to_file(i))
+        }
         futures::future::join_all(handles).await;
+        Ok(())
+    }
+    async fn download_image_to_file(&self, i: usize) -> Result<(), Box<dyn std::error::Error>> {
+        let _permit = self.semaphore.clone().acquire_owned().await?;
+        let (url, filename) = self.internal.gen_image_detail(i);
+        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
+        let mut file = tokio::fs::File::create(filename.as_str()).await?;
+        while let Some(item) = res.next().await {
+            file.write_all_buf(&mut item?).await?;
+        }
         Ok(())
     }
 
@@ -148,16 +169,32 @@ impl Doujin {
 
         let lock = Arc::new(RwLock::new(zip));
 
-        let handles = self.pages.clone().into_iter().map(|page| {
-            page.download_to_zip(
-                self.client.clone(),
-                lock.clone(),
-                self.semaphore.clone(),
-                &options,
-            )
-        });
+        let mut handles = Vec::new();
+        for i in 0..self.internal.images.pages.len() {
+            handles.push(self.download_image_to_zip(i, lock.clone(), &options))
+        }
         futures::future::join_all(handles).await;
         pb.finish();
+        Ok(())
+    }
+
+    async fn download_image_to_zip(
+        &self,
+        i: usize,
+        lock: Arc<RwLock<zip::ZipWriter<indicatif::ProgressBarIter<File>>>>,
+        options: &zip::write::FileOptions,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // use std::io::Write;
+        let _permit = self.semaphore.clone().acquire_owned().await?;
+        let (url, filename) = self.internal.gen_image_detail(i);
+        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
+        let mut zip = lock.write().await;
+
+        zip.start_file(filename.as_str(), *options)?;
+        while let Some(item) = res.next().await {
+            zip.write_all(&mut item?)?;
+        }
+
         Ok(())
     }
 }
