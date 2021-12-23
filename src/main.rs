@@ -1,6 +1,6 @@
 mod doujin;
 
-use std::fs::create_dir_all;
+// use std::fs::create_dir_all;
 
 use clap::clap_app;
 use doujin::Doujin;
@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             (@setting ArgRequiredElseHelp)
             (about: "Search for doujin")
             (@arg all: --all "Download all search results")
-            (@arg author: -a +takes_value "Write output to an author folder")
+            (@arg author: -a "Write output to an author folder")
             (@arg english: -e "Appends langauge:english to the query string")
             (@arg long: -l "Appends pages:>100 to the query string")
             (@arg numbers: -n +takes_value "Index within the search to download")
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 d.download_to_folder().await?;
             } else {
                 print!("Outputting to zipfile; ");
-                d.download_to_zip().await?;
+                d.download_to_zip(false).await?;
             }
         }
         ("search", Some(sub_m)) => {
@@ -60,29 +60,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let results = doujin::search::run_search(query.join(" ")).await?;
-            let mut author: Option<String> = None;
+            let mut author = false;
             if sub_m.is_present("author") {
-                let author_dir = sub_m.value_of("author").unwrap();
-                author = Some(author_dir.to_string());
-                create_dir_all(author_dir)?;
+                author = true;
             }
             if sub_m.is_present("numbers") {
                 let numbers = sub_m.value_of("numbers").unwrap();
                 for n in numbers.split(",") {
                     let index = n.parse::<usize>()?;
                     let mut target = results[index].clone();
-                    target.author = author.clone();
-                    target.download_to_zip().await?;
+                    // target.author = author.clone();
+                    target.download_to_zip(author).await?;
                 }
             } else if sub_m.is_present("all") {
                 for mut d in results {
-                    d.author = author.clone();
-                    d.download_to_zip().await?;
+                    d.download_to_zip(author).await?;
                 }
             }
             else {
                 for (i, d) in results.iter().enumerate() {
-                    println!("{}: {:0>6} {}", i, d.id, d.dir);
+                    println!("{}: {:0>6} {} {}", i, d.id, d.dir, d.author.as_ref().unwrap());
                 }
                 println!("Number of Doujin: {}", results.len());
             }

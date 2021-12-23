@@ -18,6 +18,12 @@ use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct Tag {
+    r#type: String,
+    name: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct Titles {
     pretty: String,
 }
@@ -40,6 +46,7 @@ struct DoujinInternal {
     media_id: String,
     title: Titles,
     images: Images,
+    tags: Vec<Tag>,
 }
 
 #[derive(Clone, Debug)]
@@ -50,6 +57,17 @@ pub struct Doujin {
     pages: Vec<Page>,
     semaphore: Arc<Semaphore>,
     pub author: Option<String>,
+}
+
+impl DoujinInternal {
+    pub fn find_artist(&self) -> Option<String> {
+        for tag in &self.tags {
+            if tag.r#type == "artist" {
+                return Some(tag.name.clone());
+            }
+        }
+        Some("Unknown".to_string())
+    }
 }
 
 impl Doujin {
@@ -98,13 +116,15 @@ impl Doujin {
         Ok(())
     }
 
-    pub async fn download_to_zip(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn download_to_zip(
+        &mut self,
+        use_author: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut filename = format!("{}.zip", self.dir);
-        match &self.author {
-            Some(author) => {
-                filename = format!("{}/{}", author, filename);
-            }
-            None => {}
+        if use_author {
+            let author = self.author.as_ref().unwrap();
+            create_dir_all(author)?;
+            filename = format!("{}/{}", author, filename);
         }
         if Path::new(&filename).exists() {
             println!("File already exists: {}", filename);

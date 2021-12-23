@@ -51,7 +51,7 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
             dir: title.clone(),
             pages: pages,
             semaphore: semaphore.clone(),
-            author: None,
+            author: d.find_artist(),
         })
     }
     Ok(output)
