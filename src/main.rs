@@ -24,8 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (@subcommand search =>
             (@setting ArgRequiredElseHelp)
             (about: "Search for doujin")
+            (@arg all: --all "Download all search results")
             (@arg author: -a +takes_value "Write output to an author folder")
             (@arg english: -e "Appends langauge:english to the query string")
+            (@arg long: -l "Appends pages:>100 to the query string")
             (@arg numbers: -n +takes_value "Index within the search to download")
             (@arg uncensored: -u "Appends tags:uncensored to the query string")
             (@arg QUERY: +required ... "Query string")
@@ -50,6 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if sub_m.is_present("english") {
                 query.push("language:english");
             }
+            if sub_m.is_present("long") {
+                query.push("pages:>100");
+            }
             if sub_m.is_present("uncensored") {
                 query.push("tags:uncensored");
             }
@@ -69,7 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     target.author = author.clone();
                     target.download_to_zip().await?;
                 }
-            } else {
+            } else if sub_m.is_present("all") {
+                for mut d in results {
+                    d.author = author.clone();
+                    d.download_to_zip().await?;
+                }
+            }
+            else {
                 for (i, d) in results.iter().enumerate() {
                     println!("{}: {:0>6} {}", i, d.id, d.dir);
                 }
