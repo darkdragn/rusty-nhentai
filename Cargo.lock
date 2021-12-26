@@ -847,6 +847,7 @@ dependencies = [
  "indicatif",
  "reqwest",
  "serde",
+ "serde_json",
  "serde_with",
  "tokio",
  "url",

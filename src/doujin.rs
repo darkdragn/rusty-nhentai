@@ -1,9 +1,6 @@
-// mod page;
 pub mod search;
-// use page::Page;
 
-use serde::Deserialize;
-// use serde_json::value::Value;
+use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -19,7 +16,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Tag {
     r#type: String,
     name: String,
@@ -171,6 +168,9 @@ impl Doujin {
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
         zip.start_file(".id", options)?;
         zip.write_all(self.id.as_bytes())?;
+        zip.start_file("tags.json", options)?;
+        let tags = serde_json::to_string(&self.internal.tags)?;
+        zip.write_all(tags.as_bytes())?;
 
         let lock = Arc::new(RwLock::new(zip));
 
@@ -186,10 +186,10 @@ impl Doujin {
     pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
         let semaphore = Arc::new(Semaphore::new(25));
         let client = reqwest::Client::builder().build()?;
-        let base = Url::parse("https://nhentai.net/api/gallery/")?;
+        let url = Url::parse("https://nhentai.net/api/gallery/")?.join(id)?;
 
         // Perform the actual execution of the network request
-        let resp = client.get(base.join(id)?).send().await?;
+        let resp = client.get(url).send().await?;
         let body = resp.json::<DoujinInternal>().await?;
 
         Ok(Doujin {
