@@ -9,6 +9,7 @@ use std::path::Path;
 use std::sync::Arc;
 use url::Url;
 
+use futures::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
@@ -126,11 +127,11 @@ impl Doujin {
         let mut f = File::create(format!("{}/.id", self.dir))?;
         f.write_all(self.id.as_bytes())?;
 
-        let mut handles = Vec::new();
+        let mut handles = FuturesUnordered::new();
         for i in 0..self.internal.images.pages.len() {
             handles.push(self.download_image_to_file(i))
         }
-        futures::future::join_all(handles).await;
+        while let Some(_result) = handles.next().await {}
         Ok(())
     }
 
@@ -174,11 +175,11 @@ impl Doujin {
 
         let lock = Arc::new(RwLock::new(zip));
 
-        let mut handles = Vec::new();
+        let mut handles = FuturesUnordered::new();
         for i in 0..self.internal.images.pages.len() {
             handles.push(self.download_image_to_zip(i, lock.clone(), &options))
         }
-        futures::future::join_all(handles).await;
+        while let Some(_result) = handles.next().await {}
         pb.finish();
         Ok(())
     }
