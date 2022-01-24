@@ -111,13 +111,14 @@ impl Doujin {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _permit = self.semaphore.clone().acquire_owned().await?;
         let (url, filename) = self.internal.gen_image_detail(i);
-        let mut res = self.client.get(url.as_str()).send().await?.bytes_stream();
+        let mut res = self.client.get(url.as_str()).send().await?.bytes().await?;
         let mut zip = lock.write().await;
 
         zip.start_file(filename.as_str(), *options)?;
-        while let Some(item) = res.next().await {
-            zip.write_all(&mut item?)?;
-        }
+        zip.write_all(&mut res)?;
+        // while let Some(item) = res.next().await {
+        //     zip.write_all(&mut item?)?;
+        // }
 
         Ok(())
     }

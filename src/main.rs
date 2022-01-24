@@ -2,6 +2,7 @@ mod doujin;
 
 use clap::clap_app;
 use doujin::Doujin;
+use prettytable::{Table, row, cell};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,11 +23,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             (about: "Search for doujin")
             (@arg all: --all "Download all search results")
             (@arg author: -a "Write output to an author folder")
-            (@arg cbz: -c "Write output to .cbz instead of .zip")
             (@arg english: -e "Appends langauge:english to the query string")
             (@arg long: -l "Appends pages:>100 to the query string")
             (@arg numbers: -n +takes_value "Index within the search to download")
             (@arg uncensored: -u "Appends tags:uncensored to the query string")
+            (@arg zip: -z "Write output to .cbz instead of .zip")
             (@arg QUERY: +required ... "Query string")
         )
     )
@@ -58,12 +59,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let results = doujin::search::run_search(query.join(" ")).await?;
             let mut author = false;
-            let mut use_cbz = false;
+            let mut use_cbz = true;
             if sub_m.is_present("author") {
                 author = true;
             }
-            if sub_m.is_present("cbz"){
-                use_cbz = true;
+            if sub_m.is_present("zip") {
+                use_cbz = false;
             }
             if sub_m.is_present("numbers") {
                 let numbers = sub_m.value_of("numbers").unwrap();
@@ -76,11 +77,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for mut d in results {
                     d.download_to_zip(author, use_cbz).await?;
                 }
-            }
-            else {
+            } else {
+                let mut table = Table::new();
+                table.add_row(row!["Index", "ID", "Name", "Author"]);
                 for (i, d) in results.iter().enumerate() {
-                    println!("{}: {:0>6} {} {}", i, d.id, d.dir, d.author.as_ref().unwrap());
+                    let default_author = "No Author".to_string();
+                    let author_name = d.author.as_ref().unwrap_or(&default_author);
+                    table.add_row(row![i, d.id, d.dir, author_name]);
+                    // println!("{}: {:0>6} {} {}", i, d.id, d.dir, author_name);
                 }
+                table.printstd();
                 println!("Number of Doujin: {}", results.len());
             }
         }
