@@ -1,6 +1,7 @@
 pub mod search;
 
 use serde::{Deserialize, Serialize};
+use serde_yaml::{self};
 use serde_with::serde_as;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -12,6 +13,8 @@ use url::Url;
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
+use reqwest::header::COOKIE;
+use reqwest::header::USER_AGENT;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
@@ -56,6 +59,12 @@ pub struct Doujin {
     semaphore: Arc<Semaphore>,
     pub author: Option<String>,
     internal: DoujinInternal,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Config {
+    cookie: String,
+    user_agent: String
 }
 
 impl Image {
@@ -144,6 +153,7 @@ impl Doujin {
             ext = ".cbz"
         }
         let mut filename = format!("{}{}", self.dir, ext);
+        filename = filename.replace("/", "|");
         if use_author {
             let author = self.author.as_ref().unwrap();
             create_dir_all(author)?;
@@ -183,13 +193,25 @@ impl Doujin {
         Ok(())
     }
 
+    pub fn fetch_headers() -> Config
+    {
+        let config_path = format!("{}/.config/rusty-nhentai.yaml", std::env::var("HOME").unwrap());
+        let f = std::fs::File::open(config_path).expect("Could not open file.");
+        let scrape_config: Config = serde_yaml::from_reader(f).expect("Could not read values.");
+        //println!("{:?}", scrape_config);
+        return scrape_config;
+    }
     pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
         let semaphore = Arc::new(Semaphore::new(25));
         let client = reqwest::Client::builder().build()?;
         let url = Url::parse("https://nhentai.net/api/gallery/")?.join(id)?;
 
         // Perform the actual execution of the network request
-        let resp = client.get(url).send().await?;
+        let scrape_config: Config = Doujin::fetch_headers();
+        let resp = client.get(url)
+            .header(COOKIE, scrape_config.cookie)
+            .header(USER_AGENT, scrape_config.user_agent)
+            .send().await?;
         let body = resp.json::<DoujinInternal>().await?;
 
         Ok(Doujin {

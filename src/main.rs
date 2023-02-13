@@ -7,19 +7,20 @@ use doujin::Doujin;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = clap_app!(RustyNHentai =>
         (@setting SubcommandRequiredElseHelp)
-        (version: "1.0")
+        (version: env!("CARGO_PKG_VERSION"))
         (author: "Darkdragn <darkdragn.cjp@gmail.com>")
         (about: "Quick downloader for NHentai, to learn Rust")
         (@subcommand pull =>
             (@setting ArgRequiredElseHelp)
             (about: "Download a Doujin from nhentai.net")
-            (version: "1.0")
+            (version: env!("CARGO_PKG_VERSION"))
             (@arg MAGIC: +required "Magic number for Doujin to download")
             (@arg folder: -f "Download to folder instead of zip (Zip is the default")
         )
         (@subcommand search =>
             (@setting ArgRequiredElseHelp)
             (about: "Search for doujin")
+            (version: env!("CARGO_PKG_VERSION"))
             (@arg all: --all "Download all search results")
             (@arg author: -a "Write output to an author folder")
             (@arg cbz: -c "Write output to .cbz instead of .zip")
@@ -40,8 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 print!("Outputting to folder; ");
                 d.download_to_folder().await?;
             } else {
-                print!("Outputting to zipfile; ");
-                d.download_to_zip(false, false).await?;
+                print!("Outputting to zipfile (CBZ); ");
+                d.download_to_zip(false, true).await?;
             }
         }
         ("search", Some(sub_m)) => {
