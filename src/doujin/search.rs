@@ -1,8 +1,11 @@
+use super::Config;
 use super::Doujin;
 use super::DoujinInternal;
 
 use std::sync::Arc;
 
+use reqwest::header::COOKIE;
+use reqwest::header::USER_AGENT;
 use serde::Deserialize;
 use tokio::sync::Semaphore;
 
@@ -26,7 +29,12 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
             .clear()
             .extend_pairs(&[query_set, sort, ("page", &page.to_string())]);
 
-        let resp = client.get(url.as_str()).send().await?;
+        //println!("{}", url.as_str());
+        let scrape_config: Config = Doujin::fetch_headers();
+        let resp = client.get(url.as_str())
+            .header(COOKIE, scrape_config.cookie)
+            .header(USER_AGENT, scrape_config.user_agent)
+            .send().await?;
         let body = resp.json::<Search>().await?;
         results.extend(body.result.iter().map(|d| -> Doujin {
             Doujin {
