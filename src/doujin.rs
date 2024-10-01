@@ -116,7 +116,7 @@ impl Doujin {
         &self,
         i: usize,
         lock: Arc<RwLock<zip::ZipWriter<indicatif::ProgressBarIter<File>>>>,
-        options: &zip::write::FileOptions,
+        options: &zip::write::SimpleFileOptions,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _permit = self.semaphore.clone().acquire_owned().await?;
         let (url, filename) = self.internal.gen_image_detail(i);
@@ -177,7 +177,7 @@ impl Doujin {
 
         let mut zip = zip::ZipWriter::new(pb.wrap_write(f));
         let options =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         zip.start_file(".id", options)?;
         zip.write_all(self.id.as_bytes())?;
         zip.start_file("tags.json", options)?;
@@ -197,10 +197,12 @@ impl Doujin {
 
     pub fn fetch_headers() -> Config
     {
-        let config_path = format!("{}/.config/rusty-nhentai.yaml", std::env::var("HOME").unwrap());
+        let mut config_path = format!("{}/.config/rusty-nhentai.yaml", std::env::var("HOME").unwrap());
+        if Path::new("./rusty-nhentai.yaml").exists() {
+            config_path = format!("./rusty-nhentai.yaml");
+        }
         let f = std::fs::File::open(config_path).expect("Could not open file.");
         let scrape_config: Config = serde_yaml::from_reader(f).expect("Could not read values.");
-        //println!("{:?}", scrape_config);
         return scrape_config;
     }
     pub async fn new(id: &String) -> Result<Doujin, Box<dyn std::error::Error>> {
