@@ -197,9 +197,10 @@ impl Doujin {
 
     pub fn fetch_headers() -> Config
     {
-        let mut config_path = format!("{}/.config/rusty-nhentai.yaml", std::env::var("HOME").unwrap());
+        let mut config_path = format!("./rusty-nhentai.yaml");
         if Path::new("./rusty-nhentai.yaml").exists() {
-            config_path = format!("./rusty-nhentai.yaml");
+        } else {
+            config_path = format!("{}/.config/rusty-nhentai.yaml", std::env::var("HOME").unwrap());
         }
         let f = std::fs::File::open(config_path).expect("Could not open file.");
         let scrape_config: Config = serde_yaml::from_reader(f).expect("Could not read values.");
