@@ -29,7 +29,7 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
             .clear()
             .extend_pairs(&[query_set, sort, ("page", &page.to_string())]);
 
-        //println!("{}", url.as_str());
+        println!("{}", url.as_str());
         let scrape_config: Config = Doujin::fetch_headers();
         let resp = client.get(url.as_str())
             .header(COOKIE, scrape_config.cookie)
