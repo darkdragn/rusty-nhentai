@@ -156,9 +156,18 @@ impl Doujin {
         }
         let mut filename = format!("{}{}", self.dir, ext);
         filename = filename.replace("/", "|");
+        let windows_no_like = ['|', '\"', '<', '>', ':', '?', '\\', '/'];
+
+        if cfg!(windows){
+            filename.retain(|x| x.is_ascii());
+            filename.retain(|x| {!windows_no_like.contains(&x)});
+        }
         if use_author {
-            let author = self.author.as_ref().unwrap();
-            create_dir_all(author)?;
+            let author = self.author.as_mut().unwrap();
+            if cfg!(windows){
+                author.retain(|x| {!windows_no_like.contains(&x)});
+            }
+            create_dir_all(&author)?;
             filename = format!("{}/{}", author, filename);
         }
         if Path::new(&filename).exists() {

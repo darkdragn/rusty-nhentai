@@ -41,7 +41,7 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
                 client: client.clone(),
                 dir: d.title.pretty.clone(),
                 semaphore: semaphore.clone(),
-                author: d.find_artist(),
+                author: d.find_artist().clone(),
                 internal: d.clone(),
             }
         }));
