@@ -2,7 +2,7 @@ mod doujin;
 
 use clap::clap_app;
 use doujin::Doujin;
-use prettytable::{Table, row, cell};
+use prettytable::{Table, row};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
