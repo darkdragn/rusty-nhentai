@@ -19,7 +19,7 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
     let semaphore = Arc::new(Semaphore::new(25));
     let client = reqwest::Client::builder().build()?;
     let query_set = ("query", query.as_str());
-    let sort = ("sort", "popular");
+    // let sort = ("sort", "popular");
     let mut url = url::Url::parse("https://nhentai.net/api/galleries/search")?;
 
     let mut page = 1u8;
@@ -27,9 +27,10 @@ pub async fn run_search(query: String) -> Result<Vec<Doujin>, Box<dyn std::error
     loop {
         url.query_pairs_mut()
             .clear()
-            .extend_pairs(&[query_set, sort, ("page", &page.to_string())]);
+            .extend_pairs(&[query_set, ("page", &page.to_string())]);
 
         let scrape_config: Config = Doujin::fetch_headers();
+        println!("{}", url.as_str());
         let resp = client.get(url.as_str())
             .header(COOKIE, scrape_config.cookie)
             .header(USER_AGENT, scrape_config.user_agent)
