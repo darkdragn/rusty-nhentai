@@ -40,6 +40,65 @@ user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gec
 They rotate their keys every 12 or so hours, so I don't expect that file to
 work for you.
 
+### Cli Help Text
+
+```bash
+-> % rusty-nhentai
+RustyNHentai 0.2.7
+Darkdragn <darkdragn.cjp@gmail.com>
+Quick downloader for NHentai, to learn Rust
+
+USAGE:
+    rusty-nhentai <SUBCOMMAND>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+SUBCOMMANDS:
+    help      Prints this message or the help of the given subcommand(s)
+    pull      Download a Doujin from nhentai.net
+    search    Search for doujin
+
+-> % rusty-nhentai search
+rusty-nhentai-search 0.2.7
+Search for doujin
+
+USAGE:
+    rusty-nhentai search [FLAGS] [OPTIONS] <QUERY>...
+
+FLAGS:
+        --all        Download all search results
+    -a               Write output to an author folder
+    -e               Appends langauge:english to the query string
+    -h, --help       Prints help information
+    -l               Appends pages:>100 to the query string
+    -u               Appends tags:uncensored to the query string
+    -V, --version    Prints version information
+    -z               Write output to .cbz instead of .zip
+
+OPTIONS:
+    -n <numbers>        Index within the search to download
+
+ARGS:
+    <QUERY>...    Query string
+
+-> % rusty-nhentai pull
+rusty-nhentai-pull 0.2.7
+Download a Doujin from nhentai.net
+
+USAGE:
+    rusty-nhentai pull [FLAGS] <MAGIC>
+
+FLAGS:
+    -f               Download to folder instead of zip (Zip is the default
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <MAGIC>    Magic number for Doujin to download
+```
+
 ### Examples
 
 #### Search
