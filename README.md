@@ -3,6 +3,14 @@
 I'm just slapping this together last minute. I've used this solo for years and
 some others might want it. 
 
+### TL;DR
+
+1. Download a binary from the releases tab or build it yourself, see below
+1. Create a yaml called rusty-nhentai.yaml in your current directory
+  1. it should have the keys cookies and user_agent, get those from your
+     browser inspect screen
+1. Enjoy! You can pull with the magic number or search.
+
 ### Building
 
 As simple as: `cargo build --release`
@@ -10,8 +18,8 @@ As simple as: `cargo build --release`
 ### Using the ripper
 
 It's currently undocumented, I need to update that, but it leverages a yaml
-config file from ${HOME}/.config/rusty-nhentai.yaml. It should have the
-following format:
+config file from either your current directory ./rusty-nhentay.yaml or 
+${HOME}/.config/rusty-nhentai.yaml. It should have the following format:
 
 ```yaml
 
@@ -35,6 +43,13 @@ work for you.
 ### Examples
 
 #### Search
+
+Some convience search options include:
+- -e (Add language:english to the search)
+- -l (Only list items with >100 pages)
+- -a (Download results in folders named after the artists)
+- --all (Download all results in the search)
+
 
 Here's a download all from an artist, that have the language english tag:
 
